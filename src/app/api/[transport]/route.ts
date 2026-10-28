@@ -2,9 +2,8 @@ import { createMcpHandler, withMcpAuth } from "mcp-handler";
 import { z } from "zod";
 import { verifyToken } from "@/lib/auth";
 
-// === JOUW GARMIN SERVER ===
 const UPSTREAM_MCP_URL = "https://garmin-personal-mcp-ten.vercel.app/mcp";
-const UPSTREAM_BEARER_TOKEN = "1cbc2df8533ffa046d18b1924ad2be33ccf607bba66ae708bbe7ea9c95b59e2"; // de token die je in de Garmin-server hebt gezet
+const UPSTREAM_BEARER_TOKEN = process.env.UPSTREAM_BEARER_TOKEN!;
 
 async function callUpstream(toolName: string, args: Record<string, unknown>) {
   const res = await fetch(UPSTREAM_MCP_URL, {
@@ -17,89 +16,52 @@ async function callUpstream(toolName: string, args: Record<string, unknown>) {
       jsonrpc: "2.0",
       id: 1,
       method: "tools/call",
-      params: {
-        name: toolName,
-        arguments: args,
-      },
+      params: { name: toolName, arguments: args },
     }),
   });
 
   if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`Upstream error ${res.status}: ${text}`);
+    throw new Error(`Upstream error ${res.status}: ${await res.text()}`);
   }
 
   const data = await res.json();
-  if (data.error) {
-    throw new Error(data.error.message || JSON.stringify(data.error));
-  }
-
+  if (data.error) throw new Error(data.error.message || JSON.stringify(data.error));
   return data.result;
 }
 
 const handler = createMcpHandler(
   (server) => {
-    // Voorbeeld-tools – voeg hier meer toe naar wens
-
     server.tool(
       "get_sleep",
-      "Haal slaapdata op voor een datum (YYYY-MM-DD).",
-      { date: z.string().describe("Datum in formaat YYYY-MM-DD") },
-      async ({ date }) => {
-        const result = await callUpstream("get_sleep", { date });
-        return result;
-      }
+      "Haal slaapdata op voor een datum (YYYY-MM-DD)",
+      { date: z.string() },
+      async ({ date }) => callUpstream("get_sleep", { date })
     );
 
     server.tool(
       "get_body_battery",
-      "Haal Body Battery data op (max 28 dagen).",
-      {
-        startDate: z.string().optional(),
-        endDate: z.string().optional(),
-      },
-      async (args) => {
-        const result = await callUpstream("get_body_battery", args);
-        return result;
-      }
+      "Haal Body Battery data op",
+      { startDate: z.string().optional(), endDate: z.string().optional() },
+      async (args) => callUpstream("get_body_battery", args)
     );
 
     server.tool(
       "get_hrv",
-      "Haal HRV data op voor een datum.",
+      "Haal HRV data op voor een datum",
       { date: z.string() },
-      async ({ date }) => {
-        const result = await callUpstream("get_hrv", { date });
-        return result;
-      }
-    );
-
-    server.tool(
-      "get_daily_summaries",
-      "Dagelijkse samenvattingen (stappen, stress, calories, etc).",
-      {
-        startDate: z.string().optional(),
-        endDate: z.string().optional(),
-      },
-      async (args) => {
-        const result = await callUpstream("get_daily_summaries", args);
-        return result;
-      }
+      async ({ date }) => callUpstream("get_hrv", { date })
     );
 
     server.tool(
       "list_activities",
-      "Lijst van recente activiteiten.",
+      "Lijst van recente activiteiten",
       {
         start: z.number().optional(),
         limit: z.number().optional(),
         startDate: z.string().optional(),
         endDate: z.string().optional(),
       },
-      async (args) => {
-        const result = await callUpstream("list_activities", args);
-        return result;
-      }
+      async (args) => callUpstream("list_activities", args)
     );
   },
   {},
