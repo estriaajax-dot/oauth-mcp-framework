@@ -10,6 +10,7 @@ async function callUpstream(toolName: string, args: Record<string, unknown>) {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
+      "Accept": "application/json, text/event-stream",
       Authorization: `Bearer ${UPSTREAM_BEARER_TOKEN}`,
     },
     body: JSON.stringify({
